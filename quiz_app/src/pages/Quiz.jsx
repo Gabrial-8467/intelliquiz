@@ -6,7 +6,7 @@ import { getQuizQuestions, saveQuiz } from '../services/quizAPI';
 import jsPDF from 'jspdf';
 import { v4 as uuidv4 } from 'uuid';
 import LOADER from '../components/Loader';
-import { FaExclamationTriangle } from 'react-icons/fa';
+import { FaExclamationTriangle, FaDownload, FaShare, FaPlay, FaArrowLeft } from 'react-icons/fa';
 import '../style/quiz.css';
 
 const QuizPreview = () => {
@@ -17,7 +17,8 @@ const QuizPreview = () => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [shareModal, setShareModal] = useState({ visible: false, link: '' });
+  const [shareModal, setShareModal] = useState({ visible: false, link: '', copied: false });
+  const [previewMode, setPreviewMode] = useState('preview');
 
   useEffect(() => {
     const fetchAndSaveQuiz = async () => {
@@ -25,9 +26,10 @@ const QuizPreview = () => {
         setLoading(true);
         setError(null);
 
-        // Get questions from Gemini AI
         const response = await getQuizQuestions(topic);
-        let rawQuestions = Array.isArray(response) ? response : response?.data?.questions || [];
+        const rawQuestions = Array.isArray(response)
+          ? response
+          : response?.data?.questions || [];
 
         const preparedQuestions = rawQuestions.map((q) => ({
           question: q.question || 'No question available',
@@ -37,7 +39,6 @@ const QuizPreview = () => {
 
         setQuestions(preparedQuestions);
 
-        // Save quiz to backend using our service
         await saveQuiz({
           uuid: quizUUID,
           topic,
@@ -67,10 +68,18 @@ const QuizPreview = () => {
     const maxLineWidth = doc.internal.pageSize.getWidth() - 2 * margin;
     let y = 20;
 
-    doc.setFontSize(16).setFont('helvetica', 'bold').text('Quiz Preview', margin, y);
+    doc.setFontSize(20).setFont('helvetica', 'bold').text(`${topic} Quiz`, margin, y);
     y += 10;
-    doc.setFontSize(12).setFont('helvetica', 'normal');
 
+    doc.setFontSize(12).setFont('helvetica', 'normal').text('Instructions:', margin, y);
+    y += 7;
+
+    doc.setFontSize(10);
+    doc.text('1. Read each question carefully', margin + 5, y); y += 5;
+    doc.text('2. Select the correct answer from the options provided', margin + 5, y); y += 5;
+    doc.text('3. The correct answer is marked with an asterisk (*)', margin + 5, y); y += 15;
+
+    doc.setFontSize(12).setFont('helvetica', 'normal');
     questions.forEach((q, i) => {
       const lines = doc.splitTextToSize(`Q${i + 1}: ${q.question}`, maxLineWidth);
       doc.text(lines, margin, y);
@@ -78,7 +87,10 @@ const QuizPreview = () => {
 
       q.options.forEach((opt) => {
         doc.rect(margin + 5, y - 3, 4, 4);
-        if (opt === q.correct_answer) doc.setFont('helvetica', 'bold');
+        if (opt === q.correct_answer) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('*', margin + 2, y);
+        }
         doc.text(opt, margin + 12, y);
         if (opt === q.correct_answer) doc.setFont('helvetica', 'normal');
         y += 6;
@@ -91,18 +103,21 @@ const QuizPreview = () => {
       }
     });
 
-    doc.save('quiz-preview.pdf');
+    doc.save(`${topic.toLowerCase()}-quiz.pdf`);
   };
 
   const generateShareableLink = () => {
     const link = `${window.location.origin}/quiz/shared/${quizUUID}`;
-    setShareModal({ visible: true, link });
+    setShareModal({ visible: true, link, copied: false });
   };
 
   const copyToClipboard = (text) => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text)
-        .then(() => alert("Link copied to clipboard!"))
+        .then(() => {
+          setShareModal(prev => ({ ...prev, copied: true }));
+          setTimeout(() => setShareModal({ visible: false, link: '', copied: false }), 2000);
+        })
         .catch((err) => {
           console.error("Clipboard API failed:", err);
           fallbackCopy(text);
@@ -121,7 +136,8 @@ const QuizPreview = () => {
     textarea.select();
     try {
       document.execCommand("copy");
-      alert("Link copied to clipboard!");
+      setShareModal(prev => ({ ...prev, copied: true }));
+      setTimeout(() => setShareModal({ visible: false, link: '', copied: false }), 2000);
     } catch {
       alert("Failed to copy. Please copy manually.");
     }
@@ -129,18 +145,33 @@ const QuizPreview = () => {
   };
 
   const startQuiz = () => {
-    navigate(`/quiz/test/${topic}`, { state: { uuid: quizUUID } });
+    navigate('/quiz/test', { state: { topic } });
   };
 
-  if (loading) return <div className="quiz-page"><LOADER /></div>;
-  
+  const togglePreviewMode = () => {
+    setPreviewMode(prev => (prev === 'preview' ? 'questions' : 'preview'));
+  };
+
+  if (loading) {
+    return (
+      <div className="quiz-page">
+        <div className="loading-container">
+          <LOADER />
+          <p>Preparing your quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="quiz-page error-container">
         <FaExclamationTriangle className="error-icon" />
         <h2>Error</h2>
         <p>{error}</p>
-        <Button onClick={() => navigate('/')}>Back to Home</Button>
+        <Button onClick={() => navigate('/')} className="back-button">
+          <FaArrowLeft /> Back to Home
+        </Button>
       </div>
     );
   }
@@ -150,41 +181,92 @@ const QuizPreview = () => {
       <div className="quiz-page error-container">
         <h2>No Quiz Data</h2>
         <p>No quiz data found. Please go back and select a topic.</p>
-        <Button onClick={() => navigate('/')}>Back to Home</Button>
+        <Button onClick={() => navigate('/')} className="back-button">
+          <FaArrowLeft /> Back to Home
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="quiz-page">
-      <h2 className="quiz-title">Preview for Quiz on {topic}</h2>
-
-      {questions.map((q, idx) => (
-        <div key={idx} className="quiz-question-block">
-          <h3 className="quiz-question">Q{idx + 1}. {q.question}</h3>
-          <div className="quiz-options">
-            {q.options.map((opt, i) => (
-              <Button key={i} className="option-btn">{opt}</Button>
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="quiz-header">
+        <h2>Quiz Preview: {topic}</h2>
+        <p className="quiz-description">
+          Review the questions below before starting the quiz. You can download a PDF version or share this quiz with others.
+        </p>
+      </div>
 
       <div className="quiz-actions">
-        <Button onClick={generatePDF}>Download Quiz as PDF</Button>
-        <Button onClick={generateShareableLink}>Share Quiz Link</Button>
-        <Button onClick={startQuiz}>Start Quiz</Button>
+        <Button onClick={generatePDF} className="action-button">
+          <FaDownload /> Download PDF
+        </Button>
+        <Button onClick={generateShareableLink} className="action-button">
+          <FaShare /> Share Quiz
+        </Button>
+        <Button onClick={togglePreviewMode} className="action-button">
+          {previewMode === 'preview' ? 'Show Questions' : 'Show Preview'}
+        </Button>
+        <Button onClick={startQuiz} className="start-button">
+          <FaPlay /> Start Quiz
+        </Button>
       </div>
+
+      {previewMode === 'preview' ? (
+        <div className="quiz-preview">
+          <div className="preview-card">
+            <h3>Quiz Overview</h3>
+            <ul>
+              <li>Total Questions: {questions.length}</li>
+              <li>Topic: {topic}</li>
+              <li>Time Limit: No time limit</li>
+              <li>Passing Score: Not required</li>
+            </ul>
+          </div>
+        </div>
+      ) : (
+        <div className="quiz-questions">
+          {questions.map((q, idx) => (
+            <div key={idx} className="question-card">
+              <h3 className="question-number">Question {idx + 1}</h3>
+              <p className="question-text">{q.question}</p>
+              <div className="options-preview">
+                {q.options.map((opt, i) => (
+                  <div key={i} className={`option-preview ${opt === q.correct_answer ? 'correct' : ''}`}>
+                    {opt}
+                    {opt === q.correct_answer && <span className="correct-badge">Correct Answer</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {shareModal.visible && (
         <div className="modal-backdrop">
-          <div className="modal-box">
-            <h3>Shareable Quiz Link</h3>
-            <input className="modal-link-input" type="text" value={shareModal.link} readOnly />
-            <div className="modal-buttons">
-              <button onClick={() => copyToClipboard(shareModal.link)}>Copy Link</button>
-              <Button onClick={() => setShareModal({ visible: false, link: '' })}>Close</Button>
+          <div className="modal-content">
+            <h3>Share Quiz</h3>
+            <div className="share-link-container">
+              <input
+                type="text"
+                value={shareModal.link}
+                readOnly
+                className="share-link-input"
+              />
+              <Button
+                onClick={() => copyToClipboard(shareModal.link)}
+                className="copy-button"
+              >
+                {shareModal.copied ? 'Copied!' : 'Copy Link'}
+              </Button>
             </div>
+            <Button
+              onClick={() => setShareModal({ visible: false, link: '', copied: false })}
+              className="close-button"
+            >
+              Close
+            </Button>
           </div>
         </div>
       )}

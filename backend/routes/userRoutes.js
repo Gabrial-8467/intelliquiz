@@ -22,4 +22,25 @@ router.get('/profile', authenticate, async (req, res) => {
   }
 });
 
+// New route to check quiz history by topic
+router.get('/quiz-history/:topic', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const previousQuizzes = await QuizResult.find({
+      user: user._id,
+      topic: req.params.topic
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      hasPreviousAttempts: previousQuizzes.length > 0,
+      previousQuizzes: previousQuizzes
+    });
+  } catch (err) {
+    console.error('Quiz history check error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
