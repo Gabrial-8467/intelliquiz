@@ -196,7 +196,7 @@ const SharedQuizPage = () => {
         >
           <FaArrowLeft /> Back
         </button>
-        <h2 className="quiz-title">Shared Quiz: {quizData.topic}</h2>
+      <h2 className="quiz-title">Shared Quiz: {quizData.topic}</h2>
         <button 
           className="share-button"
           onClick={handleShare}
@@ -228,13 +228,13 @@ const SharedQuizPage = () => {
 
       {isQuizStarted && !showResults && (
         <div className="quiz-content">
-          {quizData.questions.map((q, idx) => (
-            <div key={idx} className="quiz-question-block">
+      {quizData.questions.map((q, idx) => (
+        <div key={idx} className="quiz-question-block">
               <h3 className="quiz-question">
                 Q{idx + 1}. {q.question}
               </h3>
-              <div className="quiz-options">
-                {q.options.map((opt, i) => (
+          <div className="quiz-options">
+            {q.options.map((opt, i) => (
                   <button
                     key={i}
                     className={getOptionClassName(idx, opt)}
@@ -242,10 +242,10 @@ const SharedQuizPage = () => {
                   >
                     {opt}
                   </button>
-                ))}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+      ))}
           <div className="quiz-actions">
             <button 
               className="submit-button"

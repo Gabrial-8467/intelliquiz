@@ -2,23 +2,37 @@ const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/authMiddleware');
 const User = require('../models/User');
-const QuizResult = require('../models/result');
+const QuizResult = require('../models/Result');
 
 // Secure route using JWT middleware
 router.get('/profile', authenticate, async (req, res) => {
   try {
-    // Fix: use _id from token payload
+    // Get user from token payload
     const user = await User.findById(req.user._id).select('-password');
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found' 
+      });
+    }
 
-    // Fix: use 'user' field instead of 'userId'
+    // Get user's quiz history
     const quizHistory = await QuizResult.find({ user: user._id })
       .sort({ createdAt: -1 }); // Sort by most recent first
 
-    res.json({ user, quizHistory });
+    // Send response
+    res.status(200).json({
+      success: true,
+      user,
+      quizHistory
+    });
   } catch (err) {
     console.error('Profile fetch error:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error',
+      message: err.message 
+    });
   }
 });
 
@@ -26,7 +40,12 @@ router.get('/profile', authenticate, async (req, res) => {
 router.get('/quiz-history/:topic', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found' 
+      });
+    }
 
     const previousQuizzes = await QuizResult.find({
       user: user._id,
@@ -34,12 +53,17 @@ router.get('/quiz-history/:topic', authenticate, async (req, res) => {
     }).sort({ createdAt: -1 });
 
     res.json({
+      success: true,
       hasPreviousAttempts: previousQuizzes.length > 0,
       previousQuizzes: previousQuizzes
     });
   } catch (err) {
     console.error('Quiz history check error:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error',
+      message: err.message 
+    });
   }
 });
 

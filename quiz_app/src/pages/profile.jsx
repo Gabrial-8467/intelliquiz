@@ -36,17 +36,26 @@ const Profile = () => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
+          credentials: 'include'
         });
 
         if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('token');
+            navigate('/signin');
+            return;
+          }
           const errorData = await response.json();
           throw new Error(errorData.message || 'Failed to fetch profile');
         }
 
         const data = await response.json();
-        console.log('Profile data:', data); // Debug log
+        
+        if (!data || !data.user) {
+          throw new Error('Invalid profile data received');
+        }
 
-        setUser(data.user || {});
+        setUser(data.user);
         setQuizHistory(data.quizHistory || []);
         
         // Calculate statistics
