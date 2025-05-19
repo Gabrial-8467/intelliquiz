@@ -11,7 +11,9 @@ router.get('/profile', authenticate, async (req, res) => {
     const user = await User.findById(req.user._id).select('-password');
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const quizHistory = await QuizResult.find({ userId: user._id });
+    // Fix: use 'user' field instead of 'userId'
+    const quizHistory = await QuizResult.find({ user: user._id })
+      .sort({ createdAt: -1 }); // Sort by most recent first
 
     res.json({ user, quizHistory });
   } catch (err) {

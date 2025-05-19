@@ -3,6 +3,7 @@ require("dotenv").config(); // Load env variables
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -19,6 +20,10 @@ app.use(express.json());
 // MongoDB connection with async/await
 const connectDB = async () => {
   try {
+    if (!process.env.MONGO_URI) {
+      throw new Error('MONGO_URI is not defined in environment variables');
+    }
+    
     await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
@@ -29,6 +34,8 @@ const connectDB = async () => {
     process.exit(1); // Exit if DB connection fails
   }
 };
+
+// Connect to database
 connectDB();
 
 // Routes
@@ -46,6 +53,9 @@ app.get("/", (req, res) => {
 app.use((req, res) => {
   res.status(404).json({ message: "API route not found" });
 });
+
+// Error handling middleware
+app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;

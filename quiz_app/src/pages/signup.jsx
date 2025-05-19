@@ -2,22 +2,57 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import '../style/signin.css';
-import { FaEnvelope, FaLock, FaUser } from 'react-icons/fa';
+import '../style/signup.css';
+import { FaEnvelope, FaLock, FaUser, FaCheck, FaTimes } from 'react-icons/fa';
 
 const SignupPage = () => {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false
+  });
   const navigate = useNavigate();
 
   // ✅ Redirect if already logged in
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      navigate('/'); // or navigate('/dashboard') if that's your homepage
+      navigate('/');
     }
   }, [navigate]);
 
+  const validatePassword = (password) => {
+    const validations = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+
+    setPasswordStrength(validations);
+
+    const isValid = Object.values(validations).every(Boolean);
+    if (!isValid) {
+      setPasswordError('Password does not meet requirements');
+    } else {
+      setPasswordError('');
+    }
+
+    return isValid;
+  };
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+    
+    if (name === 'password') {
+      validatePassword(value);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -25,6 +60,10 @@ const SignupPage = () => {
 
     if (!form.name || !form.email || !form.password) {
       alert('Please fill in all fields.');
+      return;
+    }
+
+    if (!validatePassword(form.password)) {
       return;
     }
 
@@ -37,6 +76,13 @@ const SignupPage = () => {
       alert(error.response?.data?.message || 'An error occurred during signup.');
     }
   };
+
+  const PasswordRequirement = ({ met, text }) => (
+    <div className="password-requirement">
+      {met ? <FaCheck className="requirement-icon valid" /> : <FaTimes className="requirement-icon invalid" />}
+      <span className={met ? 'valid' : 'invalid'}>{text}</span>
+    </div>
+  );
 
   return (
     <div className="auth-wrapper">
@@ -83,7 +129,24 @@ const SignupPage = () => {
                 onChange={handleChange}
               />
             </div>
-            <button type="submit" className="submit-btn">Create Account</button>
+
+            <div className="password-requirements">
+              <PasswordRequirement met={passwordStrength.length} text="At least 8 characters" />
+              <PasswordRequirement met={passwordStrength.uppercase} text="At least one uppercase letter" />
+              <PasswordRequirement met={passwordStrength.lowercase} text="At least one lowercase letter" />
+              <PasswordRequirement met={passwordStrength.number} text="At least one number" />
+              <PasswordRequirement met={passwordStrength.special} text="At least one special character" />
+            </div>
+
+            {passwordError && <div className="error-message">{passwordError}</div>}
+
+            <button 
+              type="submit" 
+              className="submit-btn"
+              disabled={!!passwordError}
+            >
+              Create Account
+            </button>
           </form>
           <p className="signup-link">
             Already have an account? <Link to="/signin">Sign in here</Link>

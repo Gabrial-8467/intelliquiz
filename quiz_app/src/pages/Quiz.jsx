@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { shuffleArray } from '../utils/shuffle';
-import { getQuizQuestions } from '../services/quizAPI';
+import { getQuizQuestions, saveQuiz } from '../services/quizAPI';
 import jsPDF from 'jspdf';
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'axios';
 import LOADER from '../components/Loader';
+import { FaExclamationTriangle } from 'react-icons/fa';
 import '../style/quiz.css';
 
 const QuizPreview = () => {
@@ -16,11 +16,16 @@ const QuizPreview = () => {
   const [quizUUID] = useState(state?.uuid || uuidv4());
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [shareModal, setShareModal] = useState({ visible: false, link: '' });
 
   useEffect(() => {
     const fetchAndSaveQuiz = async () => {
       try {
+        setLoading(true);
+        setError(null);
+
+        // Get questions from Gemini AI
         const response = await getQuizQuestions(topic);
         let rawQuestions = Array.isArray(response) ? response : response?.data?.questions || [];
 
@@ -32,23 +37,28 @@ const QuizPreview = () => {
 
         setQuestions(preparedQuestions);
 
-        // Save quiz to backend
-        await axios.post('/api/quiz/save', {
+        // Save quiz to backend using our service
+        await saveQuiz({
           uuid: quizUUID,
           topic,
           questions: preparedQuestions,
         });
 
-        console.log('Quiz saved successfully.');
+        console.log('Quiz saved successfully with UUID:', quizUUID);
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error saving quiz:', error);
+        setError(error.message || 'Failed to save quiz. Please try again.');
       } finally {
         setLoading(false);
       }
     };
 
-    if (topic) fetchAndSaveQuiz();
-    else setLoading(false);
+    if (topic) {
+      fetchAndSaveQuiz();
+    } else {
+      setLoading(false);
+      setError('No topic provided. Please go back and select a topic.');
+    }
   }, [topic, quizUUID]);
 
   const generatePDF = () => {
@@ -123,8 +133,26 @@ const QuizPreview = () => {
   };
 
   if (loading) return <div className="quiz-page"><LOADER /></div>;
+  
+  if (error) {
+    return (
+      <div className="quiz-page error-container">
+        <FaExclamationTriangle className="error-icon" />
+        <h2>Error</h2>
+        <p>{error}</p>
+        <Button onClick={() => navigate('/')}>Back to Home</Button>
+      </div>
+    );
+  }
+
   if (!topic || questions.length === 0) {
-    return <div className="quiz-page"><p>No quiz data found. Please go back and select a topic.</p></div>;
+    return (
+      <div className="quiz-page error-container">
+        <h2>No Quiz Data</h2>
+        <p>No quiz data found. Please go back and select a topic.</p>
+        <Button onClick={() => navigate('/')}>Back to Home</Button>
+      </div>
+    );
   }
 
   return (

@@ -1,55 +1,80 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { saveQuizResult, getUserQuizResults } from '../services/quizAPI';
 import { Button } from '../components/Button';
+import LOADER from '../components/Loader';
+import { FaExclamationTriangle } from 'react-icons/fa';
 import '../style/result.css';
 
 const ResultPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { score, quizId, topic } = location.state || {};
+  const { score, total, topic, userAnswers } = location.state || {};
 
   const [previousResults, setPreviousResults] = useState([]);
   const [loadingResults, setLoadingResults] = useState(true);
-
-  const token = localStorage.getItem('token');
+  const [error, setError] = useState(null);
+  const [resultSaved, setResultSaved] = useState(false);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
     if (!token) {
-      alert('You must be logged in to view results.');
-      navigate('/signin');
+      setError('You must be logged in to view results.');
       return;
     }
 
-    if (score !== undefined && quizId) {
-      // Submit current quiz result
-      axios.post(
-        'http://localhost:5000/api/results/submit',
-        { quizId, score },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+    const saveAndFetchResults = async () => {
+      try {
+        setLoadingResults(true);
+        setError(null);
+
+        if (score !== undefined && total) {
+          // Save current result
+          const resultData = {
+            score,
+            totalQuestions: total,
+            topic,
+            answers: userAnswers || {}
+          };
+
+          await saveQuizResult(resultData);
+          setResultSaved(true);
         }
-      ).catch(err => console.error('Error saving result:', err));
 
-      // Fetch user's past quiz results
-      axios.get('http://localhost:5000/api/results/user', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-        .then(res => setPreviousResults(res.data || []))
-        .catch(err => console.error('Error fetching user results:', err))
-        .finally(() => setLoadingResults(false));
-    }
-  }, [score, quizId, token, navigate]);
+        // Fetch previous results
+        const results = await getUserQuizResults();
+        setPreviousResults(results || []);
+      } catch (err) {
+        console.error('Error handling results:', err);
+        setError(err.message || 'Failed to save or fetch results');
+      } finally {
+        setLoadingResults(false);
+      }
+    };
 
-  if (score === undefined) {
-    return <div className="result-error"><p>Invalid result. Please try again.</p></div>;
+    saveAndFetchResults();
+  }, [score, total, topic, userAnswers]);
+
+  if (error) {
+    return (
+      <div className="result-error">
+        <FaExclamationTriangle className="error-icon" />
+        <p>{error}</p>
+        <Button onClick={() => navigate('/')}>Back to Home</Button>
+      </div>
+    );
   }
 
-  const percentage = ((score / 5) * 100).toFixed(1); // Assuming quiz is out of 5
+  if (score === undefined || !total) {
+    return (
+      <div className="result-error">
+        <p>Invalid result data. Please try the quiz again.</p>
+        <Button onClick={() => navigate('/')}>Back to Home</Button>
+      </div>
+    );
+  }
+
+  const percentage = ((score / total) * 100).toFixed(1);
   let message = '';
   let emoji = '';
 
@@ -63,8 +88,16 @@ const ResultPage = () => {
     message = '🙂 Good try! Keep practicing!';
     emoji = '📘';
   } else {
-    message = '😅 Don’t worry! Try again!';
+    message = "😅 Don't worry! Try again!";
     emoji = '💡';
+  }
+
+  if (loadingResults) {
+    return (
+      <div className="result-container">
+        <LOADER />
+      </div>
+    );
   }
 
   return (
@@ -73,9 +106,12 @@ const ResultPage = () => {
       <p className="result-topic">Topic: <strong>{topic}</strong></p>
 
       <div className="result-score-box">
-        <p className="result-score">{score} / 5</p>
+        <p className="result-score">{score} / {total}</p>
         <p className="result-percentage">{percentage}%</p>
         <p className="result-feedback">{message}</p>
+        {resultSaved && (
+          <p className="result-saved">✓ Result saved to your profile</p>
+        )}
       </div>
 
       <div className="result-buttons">
@@ -83,7 +119,7 @@ const ResultPage = () => {
         <Button onClick={() => navigate(`/quiz/test/${topic}`)}>🔁 Retry</Button>
       </div>
 
-      {!loadingResults && previousResults.length > 0 && (
+      {previousResults.length > 0 && (
         <div className="result-history">
           <h3>Your Previous Scores</h3>
           <table>
@@ -97,8 +133,8 @@ const ResultPage = () => {
             <tbody>
               {previousResults.map((res, idx) => (
                 <tr key={idx}>
-                  <td>{res.quiz?.topic || 'Unknown'}</td>
-                  <td>{res.score}</td>
+                  <td>{res.topic || 'Unknown'}</td>
+                  <td>{res.score} / {res.totalQuestions}</td>
                   <td>{new Date(res.createdAt).toLocaleString()}</td>
                 </tr>
               ))}

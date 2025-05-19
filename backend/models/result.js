@@ -1,5 +1,16 @@
 const mongoose = require('mongoose');
 
+const answerSchema = new mongoose.Schema({
+  questionIndex: {
+    type: Number,
+    required: true
+  },
+  selectedAnswer: {
+    type: String,
+    required: true
+  }
+});
+
 const resultSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -14,10 +25,11 @@ const resultSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  total: {
+  totalQuestions: {
     type: Number,
     required: true,
   },
+  answers: [answerSchema],
   createdAt: {
     type: Date,
     default: Date.now,

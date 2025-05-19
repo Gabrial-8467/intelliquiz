@@ -1,26 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const Result = require('../models/Result');
-const authenticate = require('../middleware/authMiddleware'); // JWT auth middleware
+const resultController = require('../controllers/resultController');
+const authenticate = require('../middleware/authMiddleware');
 
-// Save quiz result
-router.post('/submit', authenticate, async (req, res) => {
-  try {
-    const { topic, score, total } = req.body;
+// Save quiz result (protected route)
+router.post('/', authenticate, resultController.submitResult);
 
-    const result = new Result({
-      user: req.user._id,
-      topic,
-      score,
-      total,
-    });
+// Get user's quiz results (protected route)
+router.get('/user', authenticate, resultController.getUserResults);
 
-    await result.save();
-    res.status(201).json({ message: 'Result saved successfully', result });
-  } catch (error) {
-    console.error('Error saving result:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+// Get results for a specific topic (public route)
+router.get('/topic/:topic', resultController.getTopicResults);
 
 module.exports = router;
