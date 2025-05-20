@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FaArrowLeft, FaArrowRight, FaCheck, FaTimes, FaLock, FaLockOpen, FaExclamationTriangle } from 'react-icons/fa';
 import { getQuizQuestions } from '../services/quizAPI';
 import LOADER from '../components/Loader';
@@ -8,6 +8,7 @@ import '../style/quizTestPage.css';
 const QuizTestPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { uuid } = useParams();
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState({});
@@ -191,6 +192,7 @@ const QuizTestPage = () => {
             score,
             totalQuestions: questions.length,
             timeSpent,
+            quizUUID: uuid,
             answers: Object.entries(userAnswers).map(([index, answer]) => ({
               questionId: questions[index]._id,
               selectedAnswer: answer,
@@ -209,7 +211,8 @@ const QuizTestPage = () => {
           total: questions.length,
           topic,
           userAnswers,
-          timeSpent
+          timeSpent,
+          quizUUID: uuid
         }
       });
     } catch (err) {
@@ -296,91 +299,81 @@ const QuizTestPage = () => {
 
   return (
     <div className="quiz-page">
-      {showExitWarning && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <div className="warning-icon">
-              <FaExclamationTriangle />
+      {showExitWarning ? (
+        <div className="exit-warning">
+          <h3>Are you sure you want to exit?</h3>
+          <p>Your progress will be lost.</p>
+          <div className="exit-buttons">
+            <button onClick={handleConfirmExit}>Yes, Exit</button>
+            <button onClick={handleCancelExit}>No, Continue</button>
+          </div>
+        </div>
+      ) : (
+        <div className="quiz-container">
+          <div className="quiz-header">
+            <h2>Question {currentQuestionIndex + 1} of {questions.length}</h2>
+            <div className="quiz-timer">Time: {formatTime(timeSpent)}</div>
+          </div>
+
+          <div className="question-container">
+            <div className="question-number">
+              <span className="number-circle">{currentQuestionIndex + 1}</span>
+              <h3>{questions[currentQuestionIndex]?.question}</h3>
             </div>
-            <h3>Complete Your Quiz First!</h3>
-            <p>You need to complete the quiz before leaving. Your progress will be lost if you exit now.</p>
-            <div className="modal-actions">
-              <button className="cancel-button" onClick={handleCancelExit}>
-                Continue Quiz
-              </button>
-              <button className="confirm-button" onClick={handleConfirmExit}>
-                Exit Anyway
-              </button>
+
+            <div className="options-container">
+              {questions[currentQuestionIndex]?.options.map((option, index) => (
+                <button
+                  key={index}
+                  className={`option-button ${userAnswers[currentQuestionIndex] === option ? 'selected' : ''}`}
+                  onClick={() => handleAnswerSelect(option)}
+                >
+                  <span className="option-number">{String.fromCharCode(65 + index)}</span>
+                  {option}
+                </button>
+              ))}
             </div>
+          </div>
+
+          <div className="navigation-buttons">
+            <button
+              className="nav-button"
+              onClick={handlePrevious}
+              disabled={currentQuestionIndex === 0}
+            >
+              <FaArrowLeft /> Previous
+            </button>
+            
+            <div className="progress-indicator">
+              {questions.map((_, index) => (
+                <span
+                  key={index}
+                  className={`progress-dot ${index === currentQuestionIndex ? 'active' : ''} ${userAnswers[index] ? 'answered' : ''}`}
+                  onClick={() => setCurrentQuestionIndex(index)}
+                />
+              ))}
+            </div>
+
+            {currentQuestionIndex === questions.length - 1 ? (
+              <button
+                className="submit-button"
+                onClick={handleSubmit}
+                disabled={Object.keys(userAnswers).length !== questions.length}
+              >
+                Submit Quiz
+              </button>
+            ) : (
+              <button
+                className="nav-button"
+                onClick={handleNext}
+                disabled={currentQuestionIndex === questions.length - 1}
+              >
+                Next <FaArrowRight />
+              </button>
+            )}
           </div>
         </div>
       )}
-
-      <div className="quiz-container">
-        <div className="quiz-header">
-          <h2>{topic} Quiz</h2>
-          <div className="quiz-stats">
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-            </div>
-            <div className="stats">
-              <span className="question-count">
-                Question {currentQuestionIndex + 1} of {questions.length}
-              </span>
-              <span className="timer">
-                Time: {formatTime(timeSpent)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="question-container">
-          <h3>{currentQuestion.question}</h3>
-          <div className="options">
-            {currentQuestion.options.map((option, index) => (
-              <button
-                key={index}
-                className={`option ${userAnswers[currentQuestionIndex] === option ? 'selected' : ''}`}
-                onClick={() => handleAnswerSelect(option)}
-                type="button"
-              >
-                <span className="option-marker">{String.fromCharCode(65 + index)}</span>
-                {option}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="navigation">
-          <button
-            className="nav-button"
-            onClick={handlePrevious}
-            disabled={currentQuestionIndex === 0}
-            type="button"
-          >
-            <FaArrowLeft /> Previous
-          </button>
-          {currentQuestionIndex === questions.length - 1 ? (
-            <button
-              className="submit-button"
-              onClick={handleSubmit}
-              disabled={Object.keys(userAnswers).length !== questions.length || isSubmitting}
-              type="button"
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Quiz'}
-            </button>
-          ) : (
-            <button
-              className="nav-button"
-              onClick={handleNext}
-              disabled={currentQuestionIndex === questions.length - 1}
-              type="button"
-            >
-              Next <FaArrowRight />
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   );
 };

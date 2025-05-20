@@ -17,7 +17,7 @@ const App = () => {
         <Route path="/" element={<Home />} />
         <Route path="/quiz" element={<Quiz />} />
         <Route path="/result" element={<Result />} />
-        <Route path="/quiz/test" element={<QuizTestPage />} />
+        <Route path="/quiz/test/:uuid" element={<QuizTestPage />} />
         <Route path="/quiz/shared/:uuid" element={<SharedQuizPage />} />
         {/* 🔐 Public routes (only accessible when not logged in) */}
         <Route

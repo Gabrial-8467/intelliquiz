@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CreatableSelect from 'react-select/creatable';
+import { v4 as uuidv4 } from 'uuid';
 import '../style/home.css';
 
 const topicOptions = [
-  { label: 'Artificial Intelligence', value: 'ai' },
-  { label: 'Web Development', value: 'web' },
-  { label: 'Data Science', value: 'data' },
-  { label: 'Cybersecurity', value: 'cyber' },
-  { label: 'Cloud Computing', value: 'cloud' },
-  { label: 'Machine Learning', value: 'ml' },
-  { label: 'Biology', value: 'bio' },
-  { label: 'Astronomy', value: 'astro' },
-  { label: 'Mathematics', value: 'math' },
-  { label: 'General Knowledge', value: 'gk' },
+  { label: 'Artificial Intelligence', value: 'Artificial Intelligence' },
+  { label: 'Web Development', value: 'Web Development' },
+  { label: 'Data Science', value: 'Data Science' },
+  { label: 'Cybersecurity', value: 'Cybersecurity' },
+  { label: 'Cloud Computing', value: 'Cloud Computing' },
+  { label: 'Machine Learning', value: 'Machine Learning' },
+  { label: 'Biology', value: 'Biology' },
+  { label: 'Astronomy', value: 'Astronomy' },
+  { label: 'Mathematics', value: 'Mathematics' },
+  { label: 'General Knowledge', value: 'General Knowledge' },
 ];
 
 const Home = () => {
@@ -44,7 +45,9 @@ const Home = () => {
     }
 
     navigate('/quiz', {
-      state: { topic: topic.value },
+      state: { 
+        topic: topic.value
+      }
     });
   };
 

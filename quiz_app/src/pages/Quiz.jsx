@@ -9,11 +9,11 @@ import LOADER from '../components/Loader';
 import { FaExclamationTriangle, FaDownload, FaShare, FaPlay, FaArrowLeft } from 'react-icons/fa';
 import '../style/quiz.css';
 
-const QuizPreview = () => {
+const Quiz = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
   const topic = state?.topic || '';
-  const [quizUUID] = useState(state?.uuid || uuidv4());
+  const [quizUUID] = useState(uuidv4());
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -68,7 +68,12 @@ const QuizPreview = () => {
     const maxLineWidth = doc.internal.pageSize.getWidth() - 2 * margin;
     let y = 20;
 
-    doc.setFontSize(20).setFont('helvetica', 'bold').text(`${topic} Quiz`, margin, y);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    doc.setFontSize(20).setFont('helvetica', 'bold');
+    const headingText = `${topic} Quiz`;
+    const headingWidth = doc.getTextWidth(headingText);
+    const headingX = (pageWidth - headingWidth) / 2;
+    doc.text(headingText, headingX, y);
     y += 10;
 
     doc.setFontSize(12).setFont('helvetica', 'normal').text('Instructions:', margin, y);
@@ -145,7 +150,13 @@ const QuizPreview = () => {
   };
 
   const startQuiz = () => {
-    navigate('/quiz/test', { state: { topic } });
+    navigate(`/quiz/test/${quizUUID}`, { 
+      state: { 
+        topic,
+        uuid: quizUUID,
+        questions
+      } 
+    });
   };
 
   const togglePreviewMode = () => {
@@ -274,4 +285,4 @@ const QuizPreview = () => {
   );
 };
 
-export default QuizPreview;
+export default Quiz;
