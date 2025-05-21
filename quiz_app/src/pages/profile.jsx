@@ -34,9 +34,11 @@ const Profile = () => {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
           },
-          credentials: 'include'
+          credentials: 'include',
+          mode: 'cors'
         });
 
         if (!response.ok) {

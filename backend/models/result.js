@@ -1,21 +1,14 @@
 const mongoose = require('mongoose');
 
-const answerSchema = new mongoose.Schema({
-  questionIndex: {
-    type: Number,
-    required: true
-  },
-  selectedAnswer: {
-    type: String,
-    required: true
-  }
-});
-
 const resultSchema = new mongoose.Schema({
-  user: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+  },
+  quizId: {
+    type: String,
+    required: false,
   },
   topic: {
     type: String,
@@ -29,7 +22,10 @@ const resultSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  answers: [answerSchema],
+  answers: {
+    type: Object,
+    default: {},
+  },
   createdAt: {
     type: Date,
     default: Date.now,

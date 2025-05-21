@@ -1,6 +1,6 @@
 // src/services/quizAPI.js
 
-const API_KEY = 'AIzaSyDY3YLEjUaQXxALgjvIpnOlVYM0hlRuRc4';
+const API_KEY = 'AIzaSyAGAvwkhwLo_LA8_Kb1TrDXuDkewQ_FS2w';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
 const BACKEND_URL = 'http://localhost:5000/api';
 
