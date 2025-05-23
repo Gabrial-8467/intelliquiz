@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getQuizByUUID, saveQuizResult } from '../services/quizAPI';
 import LOADER from '../components/Loader';
-import { FaArrowLeft, FaCheck, FaTimes, FaExclamationTriangle, FaShare, FaPlay } from 'react-icons/fa';
+import { FaArrowLeft, FaCheck, FaTimes, FaExclamationTriangle, FaShare, FaPlay, FaCopy } from 'react-icons/fa';
 import '../style/quiz.css';
 import '../style/sharedQuiz.css';
 
@@ -16,8 +16,8 @@ const SharedQuizPage = () => {
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [resultSaved, setResultSaved] = useState(false);
   const [isQuizStarted, setIsQuizStarted] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -25,6 +25,10 @@ const SharedQuizPage = () => {
         setLoading(true);
         setError(null);
         const data = await getQuizByUUID(uuid);
+        console.log('Fetched quiz data:', data);
+        if (!data || !data.questions || !Array.isArray(data.questions)) {
+          throw new Error('Invalid quiz data received');
+        }
         setQuizData(data);
         // Initialize selected answers
         const initialAnswers = {};
@@ -33,8 +37,8 @@ const SharedQuizPage = () => {
         });
         setSelectedAnswers(initialAnswers);
       } catch (err) {
+        console.error('Error fetching quiz:', err);
         setError(err.message || 'Failed to fetch shared quiz');
-        console.error('Failed to fetch shared quiz:', err);
       } finally {
         setLoading(false);
       }
@@ -50,16 +54,25 @@ const SharedQuizPage = () => {
   }, [uuid]);
 
   const handleAnswerSelect = (questionIndex, selectedOption) => {
+    console.log('Selecting answer:', { questionIndex, selectedOption });
     if (!isQuizStarted || showResults) return;
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [questionIndex]: selectedOption
-    }));
+    
+    setSelectedAnswers(prev => {
+      const newAnswers = { ...prev };
+      newAnswers[questionIndex] = selectedOption;
+      console.log('Updated answers:', newAnswers);
+      return newAnswers;
+    });
   };
 
   const calculateScore = async () => {
     let correctAnswers = 0;
     quizData.questions.forEach((question, index) => {
+      console.log('Checking answer:', { 
+        question: question.question,
+        selected: selectedAnswers[index],
+        correct: question.correct_answer 
+      });
       if (selectedAnswers[index] === question.correct_answer) {
         correctAnswers++;
       }
@@ -67,34 +80,24 @@ const SharedQuizPage = () => {
     setScore(correctAnswers);
     setShowResults(true);
 
-    // Save the result if user is logged in
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        console.log('User not logged in, skipping result save');
-        return;
+      if (token) {
+        const resultData = {
+          score: correctAnswers,
+          totalQuestions: quizData.questions.length,
+          topic: quizData.topic,
+          answers: selectedAnswers
+        };
+        await saveQuizResult(resultData);
       }
-
-      const resultData = {
-        score: correctAnswers,
-        totalQuestions: quizData.questions.length,
-        topic: quizData.topic,
-        answers: selectedAnswers
-      };
-      
-      console.log('Attempting to save result with data:', resultData);
-      const savedResult = await saveQuizResult(resultData);
-      console.log('Result saved successfully:', savedResult);
-      setResultSaved(true);
     } catch (err) {
       console.error('Failed to save result:', err);
-      setError(err.message || 'Failed to save result. Please try again.');
     }
   };
 
   const startQuiz = () => {
     setIsQuizStarted(true);
-    // Reset any previous answers and results
     const initialAnswers = {};
     quizData.questions.forEach((_, index) => {
       initialAnswers[index] = null;
@@ -102,7 +105,6 @@ const SharedQuizPage = () => {
     setSelectedAnswers(initialAnswers);
     setShowResults(false);
     setScore(0);
-    setResultSaved(false);
   };
 
   const isAnswerSelected = (questionIndex, option) => {
@@ -129,11 +131,35 @@ const SharedQuizPage = () => {
     return className;
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const shareUrl = `${window.location.origin}/quiz/shared/${uuid}`;
-    navigator.clipboard.writeText(shareUrl);
-    setShowShareModal(true);
-    setTimeout(() => setShowShareModal(false), 2000);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setShowShareModal(true);
+      setTimeout(() => {
+        setShowShareModal(false);
+        setCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setShowShareModal(true);
+        setTimeout(() => {
+          setShowShareModal(false);
+          setCopied(false);
+        }, 2000);
+      } catch (err) {
+        console.error('Fallback clipboard copy failed:', err);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   if (loading) {
@@ -196,18 +222,20 @@ const SharedQuizPage = () => {
         >
           <FaArrowLeft /> Back
         </button>
-      <h2 className="quiz-title">Shared Quiz: {quizData.topic}</h2>
+        <h2 className="quiz-title">Shared Quiz: {quizData.topic}</h2>
         <button 
           className="share-button"
           onClick={handleShare}
         >
-          <FaShare /> Share
+          {copied ? <FaCheck /> : <FaShare />} Share
         </button>
       </div>
 
       {showShareModal && (
         <div className="share-modal">
-          <p>Quiz link copied to clipboard!</p>
+          <p>
+            <FaCheck /> Quiz link copied to clipboard!
+          </p>
         </div>
       )}
 
@@ -216,6 +244,9 @@ const SharedQuizPage = () => {
           <div className="quiz-info">
             <h3>Quiz Preview</h3>
             <p>This quiz contains {quizData.questions.length} questions about {quizData.topic}.</p>
+            <p className="quiz-description">
+              Anyone with this link can take this quiz. Share it with your friends!
+            </p>
             <button 
               className="start-quiz-button"
               onClick={startQuiz}
@@ -228,24 +259,25 @@ const SharedQuizPage = () => {
 
       {isQuizStarted && !showResults && (
         <div className="quiz-content">
-      {quizData.questions.map((q, idx) => (
-        <div key={idx} className="quiz-question-block">
+          {quizData.questions.map((question, idx) => (
+            <div key={idx} className="quiz-question-block">
               <h3 className="quiz-question">
-                Q{idx + 1}. {q.question}
+                Q{idx + 1}. {question.question}
               </h3>
-          <div className="quiz-options">
-            {q.options.map((opt, i) => (
+              <div className="quiz-options">
+                {question.options.map((option, i) => (
                   <button
                     key={i}
-                    className={getOptionClassName(idx, opt)}
-                    onClick={() => handleAnswerSelect(idx, opt)}
+                    type="button"
+                    className={getOptionClassName(idx, option)}
+                    onClick={() => handleAnswerSelect(idx, option)}
                   >
-                    {opt}
+                    {option}
                   </button>
-            ))}
-          </div>
-        </div>
-      ))}
+                ))}
+              </div>
+            </div>
+          ))}
           <div className="quiz-actions">
             <button 
               className="submit-button"
@@ -273,6 +305,12 @@ const SharedQuizPage = () => {
               onClick={startQuiz}
             >
               Try Again
+            </button>
+            <button 
+              className="share-button"
+              onClick={handleShare}
+            >
+              <FaShare /> Share Quiz
             </button>
             <button 
               className="back-button"
